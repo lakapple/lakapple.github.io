@@ -1,0 +1,227 @@
+---
+import { Image } from "astro:assets";
+import backgroundImage from "../assets/images/catppuccin_dots_without_dots_1920x1080.png";
+---
+
+<div class="bg-container">
+    <Image
+        src={backgroundImage}
+        alt="Background Rings"
+        class="static-bg"
+        quality="high"
+    />
+    <canvas id="dotsCanvas"></canvas>
+</div>
+
+<style>
+    /* ... (Styles remain exactly the same) ... */
+    .bg-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        background-color: var(--ctp-base);
+        overflow: hidden;
+    }
+    .static-bg {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 1;
+    }
+    canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+</style>
+
+<script>
+    const canvas = document.getElementById("dotsCanvas") as HTMLCanvasElement;
+    const ctx = canvas.getContext("2d");
+
+    const CONFIG = {
+        MIN_SIZE: 7,
+        MAX_SIZE: 10,
+        SPEED: 0.3,
+    };
+
+    const DOT_COLORS = [
+        "#f38ba8",
+        "#eba0ac",
+        "#f5c2e7",
+        "#cba6f7",
+        "#f9e2af",
+        "#a6e3a1",
+        "#89b4fa",
+        "#74c7ec",
+        "#89b4fa",
+    ];
+
+    let dots: Dot[] = [];
+
+    class Dot {
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        radius: number;
+        color: string;
+        mass: number; // Needed for realistic bounce physics
+
+        constructor(color: string) {
+            this.color = color;
+            this.radius =
+                Math.random() * (CONFIG.MAX_SIZE - CONFIG.MIN_SIZE) +
+                CONFIG.MIN_SIZE;
+
+            // Mass is usually proportional to size in physics
+            this.mass = this.radius;
+
+            // Prevent spawning on top of another dot
+            let overlapping = true;
+            while (overlapping) {
+                this.x =
+                    Math.random() * (canvas.width - this.radius * 2) +
+                    this.radius;
+                this.y =
+                    Math.random() * (canvas.height - this.radius * 2) +
+                    this.radius;
+                overlapping = false;
+
+                // Simple check to ensure we don't spawn inside another dot
+                for (let other of dots) {
+                    const dx = this.x - other.x;
+                    const dy = this.y - other.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < this.radius + other.radius) {
+                        overlapping = true;
+                        break;
+                    }
+                }
+            }
+
+            this.vx = (Math.random() - 0.5) * CONFIG.SPEED;
+            this.vy = (Math.random() - 0.5) * CONFIG.SPEED;
+        }
+
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // Bounce off Walls (Position Correction prevents sticking)
+            if (this.x + this.radius > canvas.width) {
+                this.x = canvas.width - this.radius;
+                this.vx = -this.vx;
+            } else if (this.x - this.radius < 0) {
+                this.x = this.radius;
+                this.vx = -this.vx;
+            }
+
+            if (this.y + this.radius > canvas.height) {
+                this.y = canvas.height - this.radius;
+                this.vy = -this.vy;
+            } else if (this.y - this.radius < 0) {
+                this.y = this.radius;
+                this.vy = -this.vy;
+            }
+        }
+
+        draw() {
+            if (!ctx) return;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.closePath();
+        }
+    }
+
+    // Physics Engine: Resolve collisions between dots
+    function checkCollisions() {
+        for (let i = 0; i < dots.length; i++) {
+            for (let j = i + 1; j < dots.length; j++) {
+                const dot1 = dots[i];
+                const dot2 = dots[j];
+
+                const dx = dot2.x - dot1.x;
+                const dy = dot2.y - dot1.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // If circles overlap
+                if (distance < dot1.radius + dot2.radius) {
+                    // 1. Resolve Overlap (prevent them from getting stuck)
+                    const overlap = (dot1.radius + dot2.radius - distance) / 2;
+                    const offsetX = (dx / distance) * overlap;
+                    const offsetY = (dy / distance) * overlap;
+
+                    dot1.x -= offsetX;
+                    dot1.y -= offsetY;
+                    dot2.x += offsetX;
+                    dot2.y += offsetY;
+
+                    // 2. Resolve Velocity (Elastic Collision)
+                    // Normal vector
+                    const nx = dx / distance;
+                    const ny = dy / distance;
+
+                    // Relative velocity
+                    const dvx = dot2.vx - dot1.vx;
+                    const dvy = dot2.vy - dot1.vy;
+
+                    // Dot product of velocity and normal
+                    const dp = dvx * nx + dvy * ny;
+
+                    // If moving apart, do nothing
+                    if (dp > 0) continue;
+
+                    // Elastic collision formula
+                    const f = (2 * dp) / (dot1.mass + dot2.mass);
+
+                    dot1.vx += f * dot2.mass * nx;
+                    dot1.vy += f * dot2.mass * ny;
+                    dot2.vx -= f * dot1.mass * nx;
+                    dot2.vy -= f * dot1.mass * ny;
+                }
+            }
+        }
+    }
+
+    function init() {
+        resize();
+        dots = [];
+        DOT_COLORS.forEach((color) => {
+            dots.push(new Dot(color));
+        });
+        animate();
+    }
+
+    function animate() {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Update positions
+        dots.forEach((dot) => dot.update());
+
+        // Check Dot-to-Dot collisions
+        checkCollisions();
+
+        // Draw
+        dots.forEach((dot) => dot.draw());
+
+        requestAnimationFrame(animate);
+    }
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener("resize", resize);
+    init();
+</script>

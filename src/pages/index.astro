@@ -1,10 +1,52 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import WaveDivider from "../components/WaveDivider.astro";
+import HeroCard from "../components/HeroCard.astro";
+import BackgroundEffect from "../components/BackgroundEffect.astro";
+
+import profileImage from "../assets/images/creeper_face_512x512.png";
 ---
 
 <Layout>
     <main>
-        <WaveDivider color="blue" />
+        <BackgroundEffect />
+
+        <div class="container">
+            <HeroCard
+                name="Lakapple"
+                description="Táo"
+                profileImage={profileImage}
+                socials={[
+                    {
+                        platform: "GitHub",
+                        url: "https://github.com/lakapple",
+                        icon: "simple-icons:github", // 👇 Much cleaner!
+                        color: "lavender",
+                    },
+                    {
+                        platform: "LinkedIn",
+                        url: "https://linkedin.com/in/lakapple",
+                        icon: "simple-icons:linkedin",
+                        color: "blue",
+                    },
+                    {
+                        platform: "Facebook",
+                        url: "https://facebook.com/lakapple0",
+                        icon: "simple-icons:facebook",
+                        color: "blue",
+                    },
+                ]}
+            />
+
+            <WaveDivider color="blue" />
+        </div>
     </main>
+
+    <style>
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+    </style>
 </Layout>
