@@ -1,144 +1,117 @@
 ---
 interface Props {
-    color: string;
-    speed?: number;
-    size?: number;
-    direction?: "left" | "right";
+  color: string;
+  speed?: number;
+  size?: number;
+  direction?: "left" | "right";
 }
 
-const { color, speed = 60, size = 1, direction = "left" } = Astro.props;
+const { color, speed = 15, size = 1, direction = "left" } = Astro.props;
 
-const colorMap: any = {
-    rosewater: "var(--ctp-rosewater)",
-    flamingo: "var(--ctp-flamingo)",
-    pink: "var(--ctp-pink)",
-    mauve: "var(--ctp-mauve)",
-    red: "var(--ctp-red)",
-    maroon: "var(--ctp-maroon)",
-    peach: "var(--ctp-peach)",
-    yellow: "var(--ctp-yellow)",
-    green: "var(--ctp-green)",
-    teal: "var(--ctp-teal)",
-    sky: "var(--ctp-sky)",
-    sapphire: "var(--ctp-sapphire)",
-    blue: "var(--ctp-blue)",
-    lavender: "var(--ctp-lavender)",
-};
-
-const waveColor = colorMap[color];
+// --- LOGIC STAYS EXACTLY THE SAME ---
+const waveHeight = 50; 
+const curveWidth = 35 * size; 
+const waveCycle = curveWidth * 2; 
+const totalWidth = Math.ceil(4000 / waveCycle) * waveCycle; 
 
 const generateWavePath = () => {
-    let path = "M 0,20";
-    const circleWidth = 10 * size;
-    const amplitude = 12 * size;
-    const circles = 120;
-
-    for (let i = 0; i < circles; i++) {
-        const x = i * circleWidth;
-        const direction = i % 2 === 0 ? -1 : 1;
-        const y = 20 + amplitude * direction;
-        path += ` Q ${x + circleWidth / 2},${y} ${x + circleWidth},20`;
-    }
-
-    return path;
+  let path = `M 0,${waveHeight / 2}`;
+  const circles = totalWidth / curveWidth;
+  for (let i = 0; i < circles; i++) {
+    const x = i * curveWidth;
+    const dir = i % 2 === 0 ? -1 : 1;
+    const y = (waveHeight / 2) + (15 * size * dir); 
+    path += ` Q ${x + curveWidth / 2},${y} ${x + curveWidth},${waveHeight / 2}`;
+  }
+  return path;
 };
 
 const wavePath = generateWavePath();
 
-const animationClass =
-    direction === "left" ? "wave-slide-left" : "wave-slide-right";
+const cssVars = {
+  waveColor: `var(--ctp-${color})`,
+  cycleWidth: `${waveCycle}px`,
+  animDuration: `${speed / size}s`, 
+  halfWidth: `${totalWidth / -2}px` 
+};
 ---
 
 <div class="wave-container">
-    <div class="wave-wrapper" style={`--wave-speed: ${speed}s`}>
-        <svg
-            class="wave"
-            class:list={[animationClass]}
-            viewBox="0 0 600 40"
-            preserveAspectRatio="none"
-        >
-            <path
-                class="wave-path"
-                d={wavePath}
-                stroke={`var(--ctp-${color})`}
-                stroke-width="3"
-                fill="none"
-                stroke-linecap="round"
-                stroke-linejoin="round"></path>
-        </svg>
-    </div>
+  <div class="wave-wrapper">
+    <svg
+      class="wave"
+      class:list={[direction === "left" ? "slide-left" : "slide-right"]}
+      viewBox={`0 0 ${totalWidth} ${waveHeight}`}
+      width={totalWidth}
+      height={waveHeight}
+      xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="xMinYMid slice"
+    >
+      <path
+        d={wavePath}
+        stroke="var(--waveColor)"
+        stroke-width="3"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </div>
 </div>
 
-<style>
+<style define:vars={{ ...cssVars }}>
+  .wave-container {
+    /* 1. Constrain width to 70% */
+    width: 70%; 
+    
+    /* 2. Center the container itself */
+    margin-inline: auto;
+    
+    padding: 2rem 0;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Optional: On mobile, 70% might look too small, so we reset to 90% or 100% */
+  @media (max-width: 768px) {
     .wave-container {
-        width: 100%;
-        padding: 3rem 2rem;
-        display: flex;
-        justify-content: center;
+        width: 90%;
     }
+  }
 
-    .wave-wrapper {
-        max-width: 600px;
-        width: 100%;
-        height: 40px;
-        overflow: hidden;
-        position: relative;
-        mask-image: linear-gradient(
-            to right,
-            transparent 0%,
-            black 8%,
-            black 92%,
-            transparent 100%
-        );
-        -webkit-mask-image: linear-gradient(
-            to right,
-            transparent 0%,
-            black 8%,
-            black 92%,
-            transparent 100%
-        );
-    }
+  .wave-wrapper {
+    width: 100%;
+    height: 50px; 
+    position: relative;
+    /* Mask now applies to the 70% container edge, creating a nice fade */
+    mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+  }
 
-    .wave {
-        width: 300%;
-        height: 100%;
-        position: absolute;
-        left: -100%;
-    }
+  .wave {
+    position: absolute;
+    height: 100%;
+    left: 50%;
+    margin-left: var(--halfWidth); 
+    will-change: transform;
+  }
 
-    .wave-path {
-        vector-effect: non-scaling-stroke;
-    }
+  .slide-left {
+    animation: slideLeft var(--animDuration) linear infinite;
+  }
+  
+  .slide-right {
+    animation: slideRight var(--animDuration) linear infinite;
+  }
 
-    .wave-slide-left {
-        animation: wave-slide-left var(--wave-speed) linear infinite;
-    }
+  @keyframes slideLeft {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(calc(var(--cycleWidth) * -1)); }
+  }
 
-    .wave-slide-right {
-        animation: wave-slide-right var(--wave-speed) linear infinite;
-    }
-
-    @keyframes wave-slide-left {
-        0% {
-            transform: translateX(0);
-        }
-        100% {
-            transform: translateX(-33.33%);
-        }
-    }
-
-    @keyframes wave-slide-right {
-        0% {
-            transform: translateX(-33.33%);
-        }
-        100% {
-            transform: translateX(0);
-        }
-    }
-
-    @media (max-width: 600px) {
-        .wave-container {
-            padding: 2rem 1rem;
-        }
-    }
+  @keyframes slideRight {
+    0% { transform: translateX(calc(var(--cycleWidth) * -1)); }
+    100% { transform: translateX(0); }
+  }
 </style>
